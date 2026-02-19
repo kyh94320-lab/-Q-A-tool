@@ -3,14 +3,489 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>2026 마음치유, 봄처럼 - AI Q&A</title>
-    <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
         rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --accent-color: #ff9ebc;
+            --bg-color: #f9f9f9;
+            --text-color: #333;
+            --user-bubble-bg: linear-gradient(135deg, #4a6fa5, #3b5c8d);
+            --ai-bubble-bg: #ffffff;
+            --input-bg: #ffffff;
+            --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* Prevent body scroll */
+        }
+
+        /* Background Animation */
+        .background-blobs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: move 20s infinite alternate;
+        }
+
+        .blob-1 {
+            top: -10%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: #d4e0ff;
+        }
+
+        .blob-2 {
+            bottom: -10%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: #ffe3ec;
+        }
+
+        .blob-3 {
+            top: 40%;
+            left: 60%;
+            width: 400px;
+            height: 400px;
+            background: #e0f7fa;
+        }
+
+        @keyframes move {
+            from {
+                transform: translate(0, 0) scale(1);
+            }
+
+            to {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+        }
+
+        /* App Container */
+        #app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            height: 100%;
+        }
+
+        /* Header */
+        header {
+            padding: 1.5rem 1rem 0.5rem;
+            text-align: center;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        h1 {
+            font-family: 'Gowun Dodum', serif;
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 0.2rem;
+            cursor: pointer;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* Chat Area (Scrollable) */
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Center content initially */
+            gap: 20px;
+            padding-bottom: 120px;
+            /* Space for fixed footer */
+        }
+
+        /* Welcome Message / Quick Menu */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 50%;
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+
+        .welcome-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s infinite;
+        }
+
+        .quick-menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 2rem;
+            padding: 0 1rem;
+        }
+
+        .quick-btn {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e1e4e8;
+            padding: 12px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            color: #444;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+        }
+
+        .quick-btn:hover {
+            background: #fff;
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(74, 111, 165, 0.15);
+        }
+
+        /* Chat Bubbles */
+        .chat-message {
+            max-width: 90%;
+            padding: 18px 22px;
+            border-radius: 20px;
+            font-size: 1rem;
+            line-height: 1.6;
+            position: relative;
+            word-break: break-word;
+            animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            width: fit-content;
+        }
+
+        .chat-user {
+            align-self: flex-end;
+            background: var(--user-bubble-bg);
+            color: white;
+            border-top-right-radius: 4px;
+            box-shadow: 0 4px 12px rgba(74, 111, 165, 0.2);
+            margin-left: auto;
+            /* Force right alignment in flex column */
+        }
+
+        .chat-ai {
+            align-self: flex-start;
+            background: var(--ai-bubble-bg);
+            border: 1px solid #f0f0f0;
+            border-top-left-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-right: auto;
+            /* Force left alignment */
+        }
+
+        .chat-ai strong {
+            color: var(--primary-color);
+        }
+
+        /* Markdown Styles within Chat */
+        .chat-ai ul,
+        .chat-ai ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .chat-ai li {
+            margin-bottom: 5px;
+        }
+
+        /* Fixed Input Area (Sticky Footer) */
+        #input-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem 1.5rem 1.5rem;
+            /* Bottom padding for mobile bar */
+            background: linear-gradient(to top, rgba(249, 249, 249, 1) 70%, rgba(249, 249, 249, 0));
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+        }
+
+        .search-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            background: var(--input-bg);
+            border-radius: 30px;
+            box-shadow: var(--shadow-soft);
+            border: 2px solid #e0e0e0;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+        }
+
+        .search-container:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 15px;
+            font-size: 1rem;
+            outline: none;
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #333;
+        }
+
+        #search-btn {
+            background: var(--primary-color);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            transition: var(--transition);
+            margin-right: 5px;
+        }
+
+        #search-btn:hover {
+            transform: scale(1.1);
+            background: #3b5c8d;
+        }
+
+        #search-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2.5;
+        }
+
+        #search-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading Animation */
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #ccc;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+                opacity: 0.6;
+            }
+
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-10px);
+            }
+
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        /* Utilities */
+        mark {
+            background: #fff9c4;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .ans-step {
+            margin-top: 12px;
+            font-weight: 500;
+            color: #2c3e50;
+            border-bottom: 2px solid #eef2f7;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        /* Download Button */
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            background-color: #f1f8e9;
+            color: #33691e;
+            padding: 8px 14px;
+            border-radius: 12px;
+            border: 1px solid #dcedc8;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .download-btn:hover {
+            background-color: #dcedc8;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Mobile Optimization */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .chat-message {
+                max-width: 95%;
+                padding: 15px;
+            }
+
+            #input-area {
+                padding-bottom: 20px;
+            }
+
+            /* Safe area for mobiles */
+            .search-container {
+                border-radius: 25px;
+            }
+
+            #chat-container {
+                padding-bottom: 140px;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -21,104 +496,330 @@
         <div class="blob blob-3"></div>
     </div>
 
-    <div class="container">
-        <header>
-            <div class="header-top">
-                <h1>🌸 2026 마음치유, 봄처럼</h1>
-                <button id="settings-btn" title="API 설정" style="display: none;">⚙️ 설정</button>
-            </div>
-            <p class="subtitle">공모사업에 대해 궁금한 점을 AI에게 물어보세요.</p>
+    <div id="app-container">
+
+        <!-- Header -->
+        <header onclick="location.reload()" style="cursor: pointer;">
+            <h1>🌸 2026 마음치유, 봄처럼</h1>
+            <p class="subtitle">AI 공모사업 가이드</p>
         </header>
 
-        <section class="search-section">
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="무엇이든 물어보세요" autocomplete="off">
+        <!-- Chat Area -->
+        <main id="chat-container">
+
+            <!-- Welcome Screen with Quick Menu -->
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-icon">💬</div>
+                <h3>무엇을 도와드릴까요?</h3>
+                <p style="color: #888; margin-bottom: 20px;">궁금한 키워드를 선택하거나 직접 물어보세요.</p>
+
+                <div class="quick-menu-grid" id="quick-menu-grid">
+                    <!-- Javascript will populate this -->
+                </div>
+            </div>
+
+            <!-- Chat messages will be appended here via JS -->
+
+        </main>
+
+        <!-- Footer / Input Area -->
+        <footer id="input-area">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="궁금한 내용을 입력하세요 (예: 예산 편성 기준)" autocomplete="off">
                 <button id="search-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
                 </button>
             </div>
+        </footer>
 
-            <!-- Quick Menu Grid for Staff -->
-            <div class="quick-menu-section">
-                <h3>📌 실무자 핵심 퀵 메뉴</h3>
-                <div class="quick-menu-grid">
-                    <button class="quick-btn" onclick="searchWithAI('예산 편성 기준과 항목별 한도는?')">💰 예산 편성 기준</button>
-                    <button class="quick-btn" onclick="searchWithAI('신청 자격과 요건은?')">✅ 신청 자격</button>
-                    <button class="quick-btn" onclick="searchWithAI('제출해야 할 필수 서류 목록은?')">📄 필수 제출 서류</button>
-                    <button class="quick-btn" onclick="searchWithAI('타 사업과 중복 지원이 가능한가요?')">🚫 중복 지원 여부</button>
-                    <button class="quick-btn" onclick="searchWithAI('공간 대관 규정 및 사용 가능 시간은?')">🏢 공간 대관 규정</button>
-
-                    <button class="quick-btn" onclick="searchWithAI('지원금 정산 방법과 증빙 서류는?')">🧾 정산 및 증빙</button>
-                    <button class="quick-btn" onclick="searchWithAI('심사 시 가산점 항목은?')">💯 가산점 항목</button>
-                    <button class="quick-btn" onclick="searchWithAI('심사 기준과 선정 절차는?')">⚖️ 심사 및 선정</button>
-                    <button class="quick-btn" onclick="searchWithAI('접수 기간과 신청 방법은?')">📅 접수 기간/방법</button>
-                    <button class="quick-btn" onclick="searchWithAI('참여 인원 기준과 제한은?')">👥 참여 인원 기준</button>
-
-                    <button class="quick-btn" onclick="searchWithAI('강사비 지급 기준과 한도는?')">🎤 강사비 지급 기준</button>
-                    <button class="quick-btn" onclick="searchWithAI('홍보 의무와 결과 보고서 작성법은?')">📢 홍보 및 결과보고</button>
-                    <button class="quick-btn" onclick="searchWithAI('사업 수행 시 유의사항은?')">⚠️ 피수 유의사항</button>
-                    <button class="quick-btn" onclick="searchWithAI('지원 제외 대상은 누구인가요?')">❌ 지원 제외 대상</button>
-                    <button class="quick-btn" onclick="searchWithAI('문의처 및 담담자는?')">📞 문의처</button>
-
-                    <button class="quick-btn" onclick="searchWithAI('신청 서식 다운로드는 어디서?')">📥 서식 다운로드</button>
-                    <button class="quick-btn" onclick="searchWithAI('현장 점검 및 모니터링 절차는?')">🕵️ 현장 점검</button>
-                    <button class="quick-btn" onclick="searchWithAI('사업 변경 신청 절차는?')">🔄 사업 변경 신청</button>
-                    <button class="quick-btn" onclick="searchWithAI('자부담 비율과 필수 조건은?')">💸 자부담 비율</button>
-                    <button class="quick-btn" onclick="searchWithAI('성과 지표 작성 방법은?')">📈 성과 지표 작성</button>
-                </div>
-            </div>
-        </section>
-
-        <section id="ai-section" class="ai-section hidden">
-            <div class="ai-header">
-                <span class="ai-icon">✨</span>
-                <h3>AI 요약 답변</h3>
-            </div>
-            <div id="ai-response" class="ai-content">
-                <!-- AI response will appear here -->
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
-        </section>
-
-        <section id="results-area" class="results-grid">
-            <!-- Search results will appear here -->
-            <div class="empty-state">
-                <p>궁금한 내용을 편하게 질문해주세요.</p>
-            </div>
-        </section>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h2>⚙️ 설정</h2>
-            <div class="input-group">
-                <label for="api-key">Google Gemini API Key</label>
-                <input type="password" id="api-key" placeholder="AIzaSy...">
-                <p class="hint">API Key는 브라우저에만 저장되며 서버로 전송되지 않습니다.</p>
-            </div>
-            <div class="input-group">
-                <label for="model-select">모델 선택</label>
-                <select id="model-select">
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (권장/안정적)</option>
-                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (최신)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </select>
-            </div>
-            <button id="save-settings" class="primary-btn">저장하기</button>
-        </div>
-    </div>
-
+    <!-- Data Script -->
     <script src="data.js"></script>
-    <!-- Load App Logic -->
-    <script src="script.js"></script>
+
+    <!-- Main Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ==========================================
+            // 🔧 CONFIG & STATE
+            // ==========================================
+            const CONFIG = {
+                API_KEY: "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac",
+                PRIMARY_MODEL: "models/gemini-1.5-flash",
+                API_VERSION: "v1beta"
+            };
+
+            let chatHistory = []; // Stores context: { role: 'user'|'model', parts: [{text: '...'}] }
+            let isLoading = false;
+
+            // ==========================================
+            // 🏗️ DOM ELEMENTS
+            // ==========================================
+            const chatContainer = document.getElementById('chat-container');
+            const welcomeScreen = document.getElementById('welcome-screen');
+            const searchInput = document.getElementById('search-input');
+            const searchBtn = document.getElementById('search-btn');
+            const quickMenuGrid = document.getElementById('quick-menu-grid');
+
+            // ==========================================
+            // 🔘 QUICK MENU
+            // ==========================================
+            const QUICK_TOPICS = [
+                "💰 예산 편성 기준", "✅ 신청 자격 요건", "📄 필수 제출 서류", "📅 공모 신청 기간",
+                "⚖️ 심사 및 선정 기준", "👥 참여 인력 자격", "💸 강사비 지급 기준", "📢 결과 발표회",
+                "🛠️ 역량 강화 워크숍", "👮 보조 인력 활용", "🚫 선정 제외 사유", "📝 협력 의향 확인서"
+            ];
+
+            function renderQuickMenu() {
+                if (!quickMenuGrid) return;
+                quickMenuGrid.innerHTML = '';
+                QUICK_TOPICS.forEach(topic => {
+                    const btn = document.createElement('button');
+                    btn.className = 'quick-btn';
+                    btn.textContent = topic;
+                    btn.onclick = () => {
+                        handleUserQuery(topic + "에 대해 설명해줘");
+                    };
+                    quickMenuGrid.appendChild(btn);
+                });
+            }
+
+            // ==========================================
+            // 🚀 CORE LOGIC
+            // ==========================================
+            async function handleUserQuery(query) {
+                if (!query || isLoading) return;
+
+                // 1. UI Updates
+                isLoading = true;
+                updateInputState(true);
+
+                if (welcomeScreen) welcomeScreen.style.display = 'none';
+                chatContainer.style.alignItems = 'stretch';
+
+                searchInput.value = '';
+                searchInput.blur();
+
+                // 2. Add User Message
+                addMessage(query, 'user');
+
+                // 3. Show Loading
+                const loadingId = addLoading();
+
+                try {
+                    // 4. Validate Data
+                    if (!window.PROJECT_DATA) throw new Error("데이터 파일을 불러오지 못했습니다. 새로고침 해주세요.");
+
+                    // 5. Local Search (RAG)
+                    const relevantDocs = findRelevantDocs(query);
+                    const context = buildContext(query, relevantDocs);
+
+                    // 6. Gemini API Call
+                    const responseText = await callGeminiAPI(query, context);
+
+                    // 7. Success
+                    removeMessage(loadingId);
+                    addMessage(responseText, 'ai', query);
+
+                    // Update History
+                    chatHistory.push({ role: 'user', parts: [{ text: query }] });
+                    chatHistory.push({ role: 'model', parts: [{ text: responseText }] });
+
+                    // Keep history manageable
+                    if (chatHistory.length > 10) chatHistory = chatHistory.slice(chatHistory.length - 10);
+
+                } catch (error) {
+                    removeMessage(loadingId);
+                    addMessage(`⚠️ 오류가 발생했습니다: ${error.message}`, 'ai');
+                    console.error(error);
+                } finally {
+                    isLoading = false;
+                    updateInputState(false);
+                }
+            }
+
+            // ==========================================
+            // 💬 CHAT UI FUNCTIONS
+            // ==========================================
+            function addMessage(text, type, queryForKey = '') {
+                const div = document.createElement('div');
+                div.className = `chat-message chat-${type}`;
+
+                if (type === 'ai') {
+                    div.innerHTML = formatAIResponse(text, queryForKey);
+                } else {
+                    div.textContent = text;
+                }
+
+                chatContainer.appendChild(div);
+                scrollToBottom();
+                return div.id = 'msg-' + Date.now();
+            }
+
+            function addLoading() {
+                const div = document.createElement('div');
+                div.className = 'chat-message chat-ai';
+                div.innerHTML = `
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                `;
+                chatContainer.appendChild(div);
+                scrollToBottom();
+                return div.id = 'loading-' + Date.now();
+            }
+
+            function removeMessage(id) {
+                const el = document.getElementById(id);
+                if (el) el.remove();
+            }
+
+            function scrollToBottom() {
+                setTimeout(() => {
+                    const lastMsg = chatContainer.lastElementChild;
+                    if (lastMsg) lastMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+
+            function updateInputState(disabled) {
+                searchBtn.disabled = disabled;
+                searchInput.disabled = disabled;
+                if (!disabled) searchInput.focus();
+            }
+
+            // ==========================================
+            // 🧠 RAG & AI LOGIC
+            // ==========================================
+            function findRelevantDocs(query) {
+                if (!window.PROJECT_DATA) return [];
+                const keywords = query.replace(/[?.]/g, '').split(/\s+/).filter(k => k.length > 1);
+
+                let scores = window.PROJECT_DATA.map(doc => {
+                    let score = 0;
+                    if (doc.content) {
+                        keywords.forEach(k => {
+                            if (doc.content.includes(k)) score += 1;
+                        });
+                    }
+                    return { doc, score };
+                });
+
+                return scores.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(s => s.doc);
+            }
+
+            function buildContext(query, docs) {
+                if (docs.length === 0) return "관련 정보를 찾을 수 없습니다.";
+                return docs.map(d => `[출처: ${d.filename}]\n${d.content.substring(0, 500)}...`).join('\n\n');
+            }
+
+            async function callGeminiAPI(query, context) {
+                const systemPrompt = `당신은 '2026 마음치유, 봄처럼' 공모사업의 전문 상담 AI입니다.
+                
+                [지침]:
+                1. 사용자의 이전 대화 흐름을 기억하세요.
+                2. 제공된 [문서 내용]을 바탕으로 답변하세요.
+                3. 문서에 없는 내용은 "죄송하지만, 해당 내용은 문서에서 찾을 수 없습니다."라고 솔직하게 말하세요.
+                
+                [답변 형식]:
+                1. 📌 **핵심 요약**
+                2. 📖 **상세 설명** (글머리 기호 사용)
+                3. 🔍 **관련 근거** (파일명 명시)`;
+
+                const userContentBlock = `[문서 내용]:
+                ${context}
+                
+                [질문]:
+                ${query}`;
+
+                // Construct API Payload with History
+                const contents = [
+                    ...chatHistory,
+                    { role: 'user', parts: [{ text: userContentBlock }] }
+                ];
+
+                // Add System Instruction
+                const payload = {
+                    system_instruction: { parts: [{ text: systemPrompt }] },
+                    contents: contents
+                };
+
+                const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${CONFIG.PRIMARY_MODEL}:generateContent?key=${CONFIG.API_KEY}`;
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(`AI 서버 응답 오류 (${response.status})`);
+                }
+
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            }
+
+            // ==========================================
+            // 📝 FORMATTING
+            // ==========================================
+            function formatAIResponse(text, query) {
+                // 1. Clean up Markdown
+                let html = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                    .replace(/^1\. (.*)/gm, '<div class="ans-step">1. $1</div>')
+                    .replace(/^2\. (.*)/gm, '<div class="ans-step">2. $1</div>')
+                    .replace(/^3\. (.*)/gm, '<div class="ans-step">3. $1</div>')
+                    .replace(/\n- /g, '<br>• ')
+                    .replace(/\n/g, '<br>');
+
+                // 2. Highlighting
+                if (query) {
+                    const keywords = query.replace(/[?.]/g, '').split(/\s+/).filter(k => k.length > 1);
+                    keywords.forEach(k => {
+                        html = html.replace(new RegExp(k, 'gi'), `<mark>${k}</mark>`);
+                    });
+                }
+
+                // 3. File Download Buttons
+                const fileRegex = /([a-zA-Z0-9가-힣_\-\s\(\)]+\.(hwpx|pdf|xlsx))/g;
+                html = html.replace(fileRegex, (match) => {
+                    const safeName = match.trim();
+                    return `<br><button class="download-btn" onclick="downloadFile('${safeName}')">📄 ${safeName} 다운로드</button>`;
+                });
+
+                return html;
+            }
+
+            window.downloadFile = (filename) => {
+                const link = document.createElement('a');
+                link.href = encodeURIComponent(filename); // Relative path
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            // ==========================================
+            // 🖱️ EVENT LISTENERS
+            // ==========================================
+            searchBtn.addEventListener('click', () => handleUserQuery(searchInput.value.trim()));
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.isComposing) {
+                    handleUserQuery(searchInput.value.trim());
+                }
+            });
+
+            // Init
+            renderQuickMenu();
+        });
+    </script>
 </body>
 
 </html>
