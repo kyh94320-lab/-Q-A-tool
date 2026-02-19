@@ -747,21 +747,65 @@
                     contents: contents
                 };
 
-                const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${CONFIG.PRIMARY_MODEL}:generateContent?key=${CONFIG.API_KEY}`;
+                let modelToUse = currentModel;
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                // Helper: Attempt Fetch
+                async function tryFetch(model) {
+                    const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${model}:generateContent?key=${CONFIG.API_KEY}`;
+                    return await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
+                let response = await tryFetch(modelToUse);
+
+                // Retry Logic for 404 (Model Not Found)
+                if (response.status === 404) {
+                    console.warn(`Model ${modelToUse} not found (404). Attempting auto-discovery...`);
+                    const newModel = await discoverValidModel();
+                    if (newModel) {
+                        console.log(`Switched to new model: ${newModel}`);
+                        currentModel = newModel; // Update global state
+                        response = await tryFetch(newModel);
+                    }
+                }
 
                 if (!response.ok) {
-                    const err = await response.json().catch(() => ({}));
-                    throw new Error(`AI 서버 응답 오류 (${response.status})`);
+                    let errorMessage = `AI 서버 응답 오류 (${response.status})`;
+                    try {
+                        const errBody = await response.json();
+                        if (errBody.error && errBody.error.message) {
+                            errorMessage += `: ${errBody.error.message}`;
+                        }
+                    } catch (e) { }
+                    throw new Error(errorMessage);
                 }
 
                 const data = await response.json();
                 return data.candidates[0].content.parts[0].text;
+            }
+
+            // 🛠️ Model Auto-Discovery
+            async function discoverValidModel() {
+                try {
+                    const listUrl = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/models?key=${CONFIG.API_KEY}`;
+                    const res = await fetch(listUrl);
+                    const data = await res.json();
+
+                    if (!data.models) return null;
+
+                    // Priority: Flash -> Pro -> Any generateContent model
+                    const bestModel = data.models.find(m => m.name.includes("flash") && m.supportedGenerationMethods?.includes("generateContent"))
+                        || data.models.find(m => m.name.includes("pro") && m.supportedGenerationMethods?.includes("generateContent"))
+                        || data.models.find(m => m.supportedGenerationMethods?.includes("generateContent"));
+
+                    return bestModel ? bestModel.name : null;
+                } catch (e) {
+                    console.error("Model discovery failed:", e);
+                    return null;
+                }
             }
 
             // ==========================================
