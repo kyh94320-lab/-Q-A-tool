@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>API Key Test</title>
+</head>
+
+<body>
+    <h1>API Key Test</h1>
+    <div id="output">Running test...</div>
+    <script>
+        const API_KEY = 'AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`;
+
+        fetch(url)
+            .then(res => {
+                if (res.ok) return res.json();
+                throw new Error(`Status: ${res.status}`);
+            })
+            .then(data => {
+                console.log(data);
+                const models = data.models.filter(m => m.supportedGenerationMethods.includes('generateContent')).map(m => m.name);
+                document.getElementById('output').innerHTML = "<h3>Available Models:</h3><ul>" + models.map(m => `<li>${m}</li>`).join('') + "</ul>";
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('output').innerHTML = `<h3>Error:</h3><pre>${err.message}</pre>`;
+            });
+    </script>
+</body>
+
+</html>
