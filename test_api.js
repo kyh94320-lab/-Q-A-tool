@@ -1,6 +1,6 @@
 const https = require('https');
 
-const API_KEY = 'AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac';
+const API_KEY = ''; // 여기에 Gemini API 키를 입력하거나 환경변수를 사용하세요.
 const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`;
 
 https.get(url, (res) => {

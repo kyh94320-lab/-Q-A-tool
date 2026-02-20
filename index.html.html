@@ -509,6 +509,132 @@
                 padding-bottom: 140px;
             }
         }
+
+        /* Settings Button & Modal */
+        .settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: 1px solid #e1e4e8;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-soft);
+            transition: var(--transition);
+            z-index: 1000;
+        }
+
+        .settings-btn:hover {
+            transform: rotate(30deg);
+            box-shadow: var(--shadow-hover);
+            color: var(--primary-color);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            font-family: 'Gowun Dodum', serif;
+            font-size: 1.4rem;
+            color: var(--primary-color);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #888;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #eef2f7;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .save-btn {
+            width: 100%;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .save-btn:hover {
+            background: #3b5c8d;
+            transform: translateY(-2px);
+        }
+
+        .api-info {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        .api-info a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
     </style>
 </head>
 
@@ -523,10 +649,39 @@
     <div id="app-container">
 
         <!-- Header -->
-        <header onclick="location.reload()" style="cursor: pointer;">
+        <header onclick="if(event.target.tagName !== 'BUTTON') location.reload()" style="cursor: pointer;">
             <h1>🌸 2026 마음치유, 봄처럼</h1>
             <p class="subtitle">AI 공모사업 가이드</p>
+            <button id="open-settings" class="settings-btn" title="API 설정">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+            </button>
         </header>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>⚙️ API 설정</h2>
+                    <button class="close-btn" id="close-settings">&times;</button>
+                </div>
+                <div class="form-group">
+                    <label for="api-key-input">Gemini API 키</label>
+                    <input type="password" id="api-key-input" placeholder="AIzaSy...">
+                    <div class="api-info">
+                        API 키는 브라우저에만 안전하게 저장됩니다.<br>
+                        키가 없으신가요? <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio에서
+                            발급받기</a>
+                    </div>
+                </div>
+                <button id="save-settings" class="save-btn">저장하기</button>
+            </div>
+        </div>
 
         <!-- Chat Area -->
         <main id="chat-container">
@@ -573,7 +728,7 @@
             // 🔧 CONFIG & STATE (Strict v1beta / Gemini 3 Flash Preview)
             // ==========================================
             const CONFIG = {
-                API_KEY: "AIzaSyB3a5hSxuxlFOX-pBO1qmm_iYBxiOM5FjQ",
+                API_KEY: localStorage.getItem('GEMINI_API_KEY') || "",
                 API_VERSION: "v1beta"
             };
 
@@ -633,6 +788,55 @@
             const searchInput = document.getElementById('search-input');
             const searchBtn = document.getElementById('search-btn');
             const quickMenuGrid = document.getElementById('quick-menu-grid');
+
+            // Settings Elements
+            const settingsModal = document.getElementById('settings-modal');
+            const openSettingsBtn = document.getElementById('open-settings');
+            const closeSettingsBtn = document.getElementById('close-settings');
+            const saveSettingsBtn = document.getElementById('save-settings');
+            const apiKeyInput = document.getElementById('api-key-input');
+
+            // Initial API Key setup
+            if (CONFIG.API_KEY) {
+                apiKeyInput.value = CONFIG.API_KEY;
+            } else {
+                // Optionally show settings if key is missing
+                setTimeout(() => {
+                    if (!CONFIG.API_KEY && !isLoading) {
+                        addMessage("👋 안녕하세요! 서비스를 이용하시려면 우측 상단 설정(⚙️) 버튼을 눌러 Gemini API 키를 입력해주세요.", 'ai');
+                    }
+                }, 1000);
+            }
+
+            // ==========================================
+            // ⚙️ SETTINGS LOGIC
+            // ==========================================
+            openSettingsBtn.onclick = () => {
+                settingsModal.style.display = 'flex';
+                apiKeyInput.value = CONFIG.API_KEY;
+            };
+
+            closeSettingsBtn.onclick = () => {
+                settingsModal.style.display = 'none';
+            };
+
+            window.onclick = (event) => {
+                if (event.target === settingsModal) {
+                    settingsModal.style.display = 'none';
+                }
+            };
+
+            saveSettingsBtn.onclick = () => {
+                const newKey = apiKeyInput.value.trim();
+                if (newKey) {
+                    localStorage.setItem('GEMINI_API_KEY', newKey);
+                    CONFIG.API_KEY = newKey;
+                    settingsModal.style.display = 'none';
+                    alert('API 키가 저장되었습니다.');
+                } else {
+                    alert('API 키를 입력해주세요.');
+                }
+            };
 
 
             // ==========================================
@@ -793,6 +997,11 @@
 
             // 🔥 Strict API Call (Gemini 3 Flash Preview Only)
             async function callGeminiAPI(query, context) {
+                if (!CONFIG.API_KEY) {
+                    alert('API 키가 설정되지 않았습니다. 우측 상단 설정(⚙️)에서 키를 입력해주세요.');
+                    settingsModal.style.display = 'flex';
+                    throw new Error("API Key missing");
+                }
 
                 const systemPrompt = `당신은 '2026 마음치유, 봄처럼' 공모사업의 전문 상담 AI입니다.
                 
