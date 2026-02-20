@@ -10,6 +10,11 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
         rel="stylesheet">
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
 
     <style>
         :root {
@@ -409,35 +414,54 @@
             font-weight: 600;
         }
 
+        /* Citation Styling */
+        .citation-line {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px dashed #e1e8f0;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .citation-header {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 4px;
+        }
+
+        .citation-item {
+            padding-left: 10px;
+            border-left: 3px solid #eef2f7;
+            font-style: italic;
+            line-height: 1.4;
+        }
+
+        .chat-ai {
+            line-height: 1.7;
+            font-size: 1.05rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.03);
+        }
+
+        .chat-ai h3 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
         .ans-step {
             margin-top: 12px;
-            font-weight: 500;
-            color: #2c3e50;
-            border-bottom: 2px solid #eef2f7;
-            padding-bottom: 5px;
+            font-weight: 600;
+            color: var(--primary-color);
+            background: #f0f7ff;
+            padding: 4px 12px;
+            border-radius: 8px;
             margin-bottom: 8px;
             display: inline-block;
         }
 
-        /* Download Button */
-        .download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 10px;
-            background-color: #f1f8e9;
-            color: #33691e;
-            padding: 8px 14px;
-            border-radius: 12px;
-            border: 1px solid #dcedc8;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .download-btn:hover {
-            background-color: #dcedc8;
-        }
 
         /* Scrollbar */
         ::-webkit-scrollbar {
@@ -538,6 +562,7 @@
 
     </div>
 
+
     <!-- Data Script -->
     <script src="data.js"></script>
 
@@ -548,15 +573,57 @@
             // 🔧 CONFIG & STATE (Strict v1beta / Gemini 3 Flash Preview)
             // ==========================================
             const CONFIG = {
-                API_KEY: "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac",
+                API_KEY: "AIzaSyB3a5hSxuxlFOX-pBO1qmm_iYBxiOM5FjQ",
                 API_VERSION: "v1beta"
             };
 
-            // STRICT Variable Declaration as requested
+            // Reverting back to Gemini 3 Flash Preview as requested
             const currentModel = "gemini-3-flash-preview";
 
             let chatHistory = [];
             let isLoading = false;
+            let PDF_DATA = []; // Will store extracted PDF content
+
+            // ==========================================
+            // 📑 PDF EXTRACTION
+            // ==========================================
+            const PDF_FILES = [
+                "(붙임1) 2026 마음치유, 봄처럼 공모 안내문.pdf",
+                "(붙임2-1) 2026 마음치유, 봄처럼 공모신청서.pdf",
+                "(붙임2-2) 2026 마음치유, 봄처럼 국고보조금 예산편성 기준.pdf"
+            ];
+
+            async function initPdfData() {
+                for (const filename of PDF_FILES) {
+                    try {
+                        const pdf = await pdfjsLib.getDocument('./' + filename).promise;
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            PDF_DATA.push({
+                                filename,
+                                page: i,
+                                content: pageText.trim()
+                            });
+                        }
+                    } catch (err) {
+                        console.error(`Error loading PDF ${filename}:`, err);
+                    }
+                }
+                // Fallback to PROJECT_DATA if PDF loading fails or is empty
+                if (PDF_DATA.length === 0 && window.PROJECT_DATA) {
+                    PDF_DATA = window.PROJECT_DATA.map(d => ({
+                        ...d,
+                        filename: d.filename.replace(/\.hwpx$/i, '.pdf'),
+                        page: 1 // Default for fallback data
+                    }));
+                }
+                window.PROJECT_DATA = PDF_DATA; // Sync for other functions
+                console.log("PDF Data Initialized:", PDF_DATA);
+            }
+
+            initPdfData();
 
             // ==========================================
             // 🏗️ DOM ELEMENTS
@@ -566,6 +633,7 @@
             const searchInput = document.getElementById('search-input');
             const searchBtn = document.getElementById('search-btn');
             const quickMenuGrid = document.getElementById('quick-menu-grid');
+
 
             // ==========================================
             // 🔘 QUICK MENU
@@ -649,16 +717,21 @@
             function addMessage(text, type, queryForKey = '') {
                 const div = document.createElement('div');
                 div.className = `chat-message chat-${type}`;
+                if (type === 'ai') div.classList.add('chat-ai');
 
                 if (type === 'ai') {
                     div.innerHTML = formatAIResponse(text, queryForKey);
+                    div.setAttribute('data-raw', text); // Store raw text for modal
                 } else {
                     div.textContent = text;
                 }
 
                 chatContainer.appendChild(div);
                 scrollToBottom();
-                return div.id = 'msg-' + Date.now();
+
+                const msgId = 'msg-' + Date.now();
+                div.id = msgId;
+                return msgId;
             }
 
             function addLoading() {
@@ -709,12 +782,13 @@
                     return { doc, score };
                 });
 
-                return scores.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(s => s.doc);
+                // Return top 5 relevant pages
+                return scores.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5).map(s => s.doc);
             }
 
             function buildContext(query, docs) {
                 if (docs.length === 0) return "관련 정보를 찾을 수 없습니다.";
-                return docs.map(d => `[출처: ${d.filename}]\n${d.content.substring(0, 500)}...`).join('\n\n');
+                return docs.map(d => `[출처: ${d.filename} (Page ${d.page})]\n${d.content}\n`).join('\n---\n');
             }
 
             // 🔥 Strict API Call (Gemini 3 Flash Preview Only)
@@ -724,13 +798,20 @@
                 
                 [지침]:
                 1. 사용자의 이전 대화 흐름을 기억하세요.
-                2. 제공된 [문서 내용]을 바탕으로 답변하세요.
-                3. 문서에 없는 내용은 "죄송하지만, 해당 내용은 문서에서 찾을 수 없습니다."라고 솔직하게 말하세요.
+                2. 제공된 [문서 내용]의 각 섹션에는 '[출처: 파일명 (Page X)]' 형식의 페이지 정보가 포함되어 있습니다.
+                3. 답변 시 반드시 해당 페이지 정보를 참조하여 정확한 출처를 명시하세요.
+                4. **중요: 모든 파일 확장자는 반드시 .pdf로 표기하세요. 절대로 .hwpx 확장자를 사용하지 마세요.**
+                5. 답변이 끝난 후, 하단에 참고한 데이터의 출처(파일명, 페이지)를 다음 형식에 맞춰 출력하세요. 
+                   여러 개의 근거가 있을 경우 반드시 줄 바꿈을 하여 하나씩 나열하세요.
+                   
+                   📍 **근거 자료**:
+                   [파일명1.pdf] - [00페이지 / 00섹션]
+                   [파일명2.pdf] - [00페이지 / 00섹션]
                 
-                [답변 형식]:
+                [답변 형식 (필수)]:
                 1. 📌 **핵심 요약**
                 2. 📖 **상세 설명** (글머리 기호 사용)
-                3. 🔍 **관련 근거** (파일명 명시)`;
+                3. 📍 **근거 자료**: (여기에 줄 바꿈을 포함하여 파일명과 정확한 페이지를 나열)`;
 
                 const userContentBlock = `[문서 내용]:
                 ${context}
@@ -795,24 +876,38 @@
                     });
                 }
 
-                // 3. File Download Buttons
-                const fileRegex = /([a-zA-Z0-9가-힣_\-\s\(\)]+\.(hwpx|pdf|xlsx))/g;
-                html = html.replace(fileRegex, (match) => {
-                    const safeName = match.trim();
-                    return `<br><button class="download-btn" onclick="downloadFile('${safeName}')">📄 ${safeName} 다운로드</button>`;
-                });
+                // 3. Source Citation Styling (📍 근거 자료: ...)
+                html = html.replace(/\.hwpx/gi, '.pdf'); // extension enforcement
+
+                const citationMarker = "📍 <strong>근거 자료</strong>:";
+                const citationIdx = html.lastIndexOf(citationMarker);
+
+                if (citationIdx !== -1) {
+                    const mainBody = html.substring(0, citationIdx);
+                    const citationContent = html.substring(citationIdx + citationMarker.length);
+
+                    // Split content after marker into vertical items
+                    const formattedCitations = citationContent
+                        .split('<br>')
+                        .filter(line => line.trim().length > 0)
+                        .map(line => `<div class="citation-item">${line.trim()}</div>`)
+                        .join('');
+
+                    html = mainBody + `
+                        <div class="citation-line">
+                            <div class="citation-header">📍 근거 자료:</div>
+                            ${formattedCitations}
+                        </div>`;
+                }
+
+                // Hide [CORE_SENTENCE] from UI
+                html = html.replace(/\[CORE_SENTENCE\].*?$/gm, '');
 
                 return html;
             }
 
-            window.downloadFile = (filename) => {
-                const link = document.createElement('a');
-                link.href = encodeURIComponent(filename); // Relative path
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
+
+            // Event Listeners
 
             // ==========================================
             // 🖱️ EVENT LISTENERS
