@@ -549,7 +549,7 @@
             // ==========================================
             const CONFIG = {
                 API_KEY: "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac",
-                PRIMARY_MODEL: "models/gemini-3-flash-preview",
+                PRIMARY_MODEL: "models/gemini-1.5-pro",
                 API_VERSION: "v1beta"
             };
 
@@ -717,6 +717,9 @@
             }
 
             async function callGeminiAPI(query, context) {
+                // Update API Key if needed
+                const currentKey = "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac";
+
                 const systemPrompt = `당신은 '2026 마음치유, 봄처럼' 공모사업의 전문 상담 AI입니다.
                 
                 [지침]:
@@ -735,23 +738,22 @@
                 [질문]:
                 ${query}`;
 
-                // Construct API Payload with History
                 const contents = [
                     ...chatHistory,
                     { role: 'user', parts: [{ text: userContentBlock }] }
                 ];
 
-                // Add System Instruction
                 const payload = {
                     system_instruction: { parts: [{ text: systemPrompt }] },
                     contents: contents
                 };
 
+                // Try Primary Model First
                 let modelToUse = currentModel;
+                console.log(`Attempting to use model: ${modelToUse}`);
 
-                // Helper: Attempt Fetch
                 async function tryFetch(model) {
-                    const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${model}:generateContent?key=${CONFIG.API_KEY}`;
+                    const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${model}:generateContent?key=${currentKey}`;
                     return await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -761,26 +763,39 @@
 
                 let response = await tryFetch(modelToUse);
 
-                // Retry Logic for 404 (Model Not Found)
+                // Failover Logic
                 if (response.status === 404) {
-                    console.warn(`Model ${modelToUse} not found (404). Attempting auto-discovery...`);
-                    const newModel = await discoverValidModel();
-                    if (newModel) {
-                        console.log(`Switched to new model: ${newModel}`);
-                        currentModel = newModel; // Update global state
-                        response = await tryFetch(newModel);
+                    console.warn(`Model ${modelToUse} failed (404). Trying fallbacks...`);
+
+                    // 1. Try a known stable model directly
+                    const stableModel = "models/gemini-1.5-flash";
+                    if (modelToUse !== stableModel) {
+                        console.log(`Trying stable fallback: ${stableModel}`);
+                        response = await tryFetch(stableModel);
+                        if (response.ok) {
+                            currentModel = stableModel;
+                            modelToUse = stableModel;
+                        }
+                    }
+
+                    // 2. If stable failed/was same, try discovery
+                    if (!response.ok) {
+                        const newModel = await discoverValidModel();
+                        if (newModel && newModel !== modelToUse) {
+                            console.log(`Discovered fallback model: ${newModel}`);
+                            currentModel = newModel;
+                            response = await tryFetch(newModel);
+                        }
                     }
                 }
 
                 if (!response.ok) {
-                    let errorMessage = `AI 서버 응답 오류 (${response.status})`;
+                    let errorMessage = `AI 서버 연결 실패 (${response.status})`;
                     try {
-                        const errBody = await response.json();
-                        if (errBody.error && errBody.error.message) {
-                            errorMessage += `: ${errBody.error.message}`;
-                        }
+                        const err = await response.json();
+                        if (err.error) errorMessage += `: ${err.error.message}`;
                     } catch (e) { }
-                    throw new Error(errorMessage);
+                    throw new Error(errorMessage + " (잠시 후 다시 시도해보세요)");
                 }
 
                 const data = await response.json();
@@ -790,20 +805,20 @@
             // 🛠️ Model Auto-Discovery
             async function discoverValidModel() {
                 try {
-                    const listUrl = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/models?key=${CONFIG.API_KEY}`;
+                    const key = "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac";
+                    const listUrl = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/models?key=${key}`;
                     const res = await fetch(listUrl);
+                    if (!res.ok) return null;
                     const data = await res.json();
 
                     if (!data.models) return null;
 
-                    // Priority: Flash -> Pro -> Any generateContent model
-                    const bestModel = data.models.find(m => m.name.includes("flash") && m.supportedGenerationMethods?.includes("generateContent"))
-                        || data.models.find(m => m.name.includes("pro") && m.supportedGenerationMethods?.includes("generateContent"))
-                        || data.models.find(m => m.supportedGenerationMethods?.includes("generateContent"));
+                    // Priority: Flash -> Pro -> Any
+                    const best = data.models.find(m => m.name.includes("flash") && m.supportedGenerationMethods?.includes("generateContent"))
+                        || data.models.find(m => m.name.includes("pro") && m.supportedGenerationMethods?.includes("generateContent"));
 
-                    return bestModel ? bestModel.name : null;
+                    return best ? best.name : null;
                 } catch (e) {
-                    console.error("Model discovery failed:", e);
                     return null;
                 }
             }
