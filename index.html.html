@@ -555,6 +555,7 @@
 
             let chatHistory = []; // Stores context: { role: 'user'|'model', parts: [{text: '...'}] }
             let isLoading = false;
+            let currentModel = CONFIG.PRIMARY_MODEL;
 
             // ==========================================
             // 🏗️ DOM ELEMENTS
@@ -612,7 +613,7 @@
 
                 try {
                     // 4. Validate Data
-                    if (!window.PROJECT_DATA) throw new Error("데이터 파일을 불러오지 못했습니다. 새로고침 해주세요.");
+                    if (!window.PROJECT_DATA) throw new Error("데이터 파일을 불러오지 못했습니다. 새로고침 해주세요, 또는 관리자에게 문의하세요 (data.js missing).");
 
                     // 5. Local Search (RAG)
                     const relevantDocs = findRelevantDocs(query);
@@ -716,8 +717,8 @@
                 return docs.map(d => `[출처: ${d.filename}]\n${d.content.substring(0, 500)}...`).join('\n\n');
             }
 
+            // 🔥 Robust API Call with Brute-Force Fallback
             async function callGeminiAPI(query, context) {
-                // Update API Key if needed
                 const currentKey = "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac";
 
                 const systemPrompt = `당신은 '2026 마음치유, 봄처럼' 공모사업의 전문 상담 AI입니다.
@@ -748,43 +749,47 @@
                     contents: contents
                 };
 
-                // Try Primary Model First
-                let modelToUse = currentModel;
-                console.log(`Attempting to use model: ${modelToUse}`);
-
+                // Helper: Attempt Fetch
                 async function tryFetch(model) {
                     const url = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/${model}:generateContent?key=${currentKey}`;
-                    return await fetch(url, {
+                    const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
+                    return res;
                 }
 
+                // 1. Try Primary Model (gemini-3-pro as user requested)
+                let modelToUse = currentModel;
+                console.log(`Checking Primary Model: ${modelToUse}`);
                 let response = await tryFetch(modelToUse);
 
-                // Failover Logic
-                if (response.status === 404) {
-                    console.warn(`Model ${modelToUse} failed (404). Trying fallbacks...`);
+                // 2. Brute-Force Fallback if Primary fails
+                if (!response.ok) {
+                    console.warn(`Primary model ${modelToUse} failed (${response.status}). Starting brute-force coverage...`);
 
-                    // 1. Try a known stable model directly
-                    const stableModel = "models/gemini-1.5-flash";
-                    if (modelToUse !== stableModel) {
-                        console.log(`Trying stable fallback: ${stableModel}`);
-                        response = await tryFetch(stableModel);
-                        if (response.ok) {
-                            currentModel = stableModel;
-                            modelToUse = stableModel;
-                        }
-                    }
+                    // List of models to try. Includes 1.5 Pro/Flash and 1.0.
+                    // This bypasses the need for listModels permission.
+                    const FALLBACK_MODELS = [
+                        "models/gemini-1.5-pro",
+                        "models/gemini-1.5-flash",
+                        "models/gemini-1.5-pro-002",
+                        "models/gemini-1.5-flash-002",
+                        "models/gemini-1.0-pro"
+                    ];
 
-                    // 2. If stable failed/was same, try discovery
-                    if (!response.ok) {
-                        const newModel = await discoverValidModel();
-                        if (newModel && newModel !== modelToUse) {
-                            console.log(`Discovered fallback model: ${newModel}`);
-                            currentModel = newModel;
-                            response = await tryFetch(newModel);
+                    for (const fallbackModel of FALLBACK_MODELS) {
+                        if (fallbackModel === modelToUse) continue;
+
+                        console.log(`Trying fallback model: ${fallbackModel}`);
+                        const fallbackRes = await tryFetch(fallbackModel);
+
+                        if (fallbackRes.ok) {
+                            console.log(`Fallback success! Switched to ${fallbackModel}`);
+                            currentModel = fallbackModel; // Update global for future calls
+                            response = fallbackRes;
+                            break;
                         }
                     }
                 }
@@ -795,32 +800,11 @@
                         const err = await response.json();
                         if (err.error) errorMessage += `: ${err.error.message}`;
                     } catch (e) { }
-                    throw new Error(errorMessage + " (잠시 후 다시 시도해보세요)");
+                    throw new Error(errorMessage + " (키 권한 문제거나, 잠시 서버가 불안정합니다)");
                 }
 
                 const data = await response.json();
                 return data.candidates[0].content.parts[0].text;
-            }
-
-            // 🛠️ Model Auto-Discovery
-            async function discoverValidModel() {
-                try {
-                    const key = "AIzaSyCNzZ7zsmJf16WkcU8oGeUdbl1jsaoT6ac";
-                    const listUrl = `https://generativelanguage.googleapis.com/${CONFIG.API_VERSION}/models?key=${key}`;
-                    const res = await fetch(listUrl);
-                    if (!res.ok) return null;
-                    const data = await res.json();
-
-                    if (!data.models) return null;
-
-                    // Priority: Flash -> Pro -> Any
-                    const best = data.models.find(m => m.name.includes("flash") && m.supportedGenerationMethods?.includes("generateContent"))
-                        || data.models.find(m => m.name.includes("pro") && m.supportedGenerationMethods?.includes("generateContent"));
-
-                    return best ? best.name : null;
-                } catch (e) {
-                    return null;
-                }
             }
 
             // ==========================================
